@@ -229,6 +229,19 @@ const STARTING_PLACES = [
     speedKmh: 30     // assumed average speed for the drive-time estimate
   };
 
+  // If my craving has nothing left that fits, the page tries this tag instead
+  // and says so. Tags I add myself have no alternative.
+  const ALTERNATIVES = {
+    "Italian": "Greek",
+    "Vietnamese": "Chinese",
+    "Greek": "Middle Eastern",
+    "Middle Eastern": "Greek",
+    "Latin": "Spanish",
+    "Spanish": "Latin",
+    "American": "Seafood",
+    "Seafood": "American"
+  };
+
   const BRACKETS = [
     { value: 1, symbol: "$",    range: "under $20" },
     { value: 2, symbol: "$$",   range: "$20-50" },
@@ -451,19 +464,27 @@ const STARTING_PLACES = [
     return words.join(" ") + ".";
   }
 
-  function scorePlace(p) {
+  // `tag` is the craving being matched: my choice, or its alternative.
+  function scorePlace(p, tag) {
     const f = state.form;
     let s = 0;
-    if (f.craving !== "anything" && p.tags.indexOf(f.craving) !== -1) s += W.craving;
+    if (tag !== "anything" && p.tags.indexOf(tag) !== -1) s += W.craving;
     const km = kmTo(p);
     if (km !== null) s += W.closeness * Math.max(0, 1 - km / W.closeKm);
     if (f.been === "either" && !p.visited) s += W.notBeen;
     return s;
   }
 
-  function reasonFor(p) {
+  function reasonFor(p, alt, noCraving) {
     const f = state.form, parts = [];
-    if (f.craving !== "anything" && p.tags.indexOf(f.craving) !== -1) parts.push("Matches " + f.craving);
+    if (alt && p.tags.indexOf(alt) !== -1) {
+      const article = /^[AEIOU]/.test(alt) ? "an " : "a ";
+      parts.push("No " + f.craving + " fits tonight, so here's " + article + alt + " alternative");
+    } else if (noCraving) {
+      parts.push("No " + f.craving + " fits tonight");
+    } else if (f.craving !== "anything" && p.tags.indexOf(f.craving) !== -1) {
+      parts.push("Matches " + f.craving);
+    }
     const m = minutesTo(p);
     if (m !== null) parts.push("it's about " + Math.max(1, Math.round(m)) + " min away");
     if (!p.visited) parts.push("you haven't been yet");
@@ -492,14 +513,22 @@ const STARTING_PLACES = [
     const fresh = pool.filter(function (p) { return state.shown.indexOf(p.id) === -1; });
     if (fresh.length === 0) return { kind: "nothingleft" };
 
+    // Is there anything left for my craving? If not, try its alternative.
+    let tag = f.craving, alt = null, noCraving = false;
+    if (tag !== "anything" && !fresh.some(function (p) { return p.tags.indexOf(tag) !== -1; })) {
+      const a = ALTERNATIVES[tag];
+      if (a && fresh.some(function (p) { return p.tags.indexOf(a) !== -1; })) { alt = a; tag = a; }
+      else noCraving = true;
+    }
+
     let best = -Infinity, top = [];
     fresh.forEach(function (p) {
-      const s = scorePlace(p);
+      const s = scorePlace(p, tag);
       if (s > best + 1e-9) { best = s; top = [p]; }
       else if (Math.abs(s - best) <= 1e-9) top.push(p);
     });
     // Ties are broken at random, so the pick varies.
-    return { kind: "pick", place: top[Math.floor(Math.random() * top.length)] };
+    return { kind: "pick", place: top[Math.floor(Math.random() * top.length)], alt: alt, noCraving: noCraving };
   }
 
   function runPick() {
@@ -647,7 +676,7 @@ const STARTING_PLACES = [
           h("div", { class: "result-body" },
             h("h2", { text: p.name }),
             metaLine(p),
-            h("p", { class: "reason", text: reasonFor(p) }),
+            h("p", { class: "reason", text: reasonFor(p, v.alt, v.noCraving) }),
             p.description ? h("p", { class: "desc", text: p.description }) : null,
             h("div", { class: "actions" },
               h("button", { type: "button", class: "btn primary", onclick: imGoing, text: "I'm going" }),
