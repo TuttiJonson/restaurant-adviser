@@ -32,7 +32,7 @@ Where the data lives:
    - Craving: chips built from the tags on my list, plus "Anything".
    - Minutes I'll drive: 10 / 20 / 30 / Any. Optional.
    - "Pick one for me" button.
-2. Result: one restaurant with its color tile (first tag as a label), a one-line reason (for example "Matches Greek, and it's about 8 min away."), the place's short description if it has one, and "about X km, ~Y min drive". No scores and no chips are shown anywhere. Drive time is straight-line distance at an assumed 50 km/h, labeled "about".
+2. Result: one restaurant with its color tile (first tag as a label), a one-line reason (for example "Matches Greek, and it's about 8 min away."), the place's short description if it has one, and "about X km, ~Y min drive". No scores and no chips are shown anywhere. Drive time is straight-line distance at an assumed 30 km/h, labeled "about".
 3. Buttons on the result:
    - Pick again: shows the next-best place. Places already shown this round are not repeated.
    - Not tonight: hides the place from every pick until Start over. A quiet line shows "N hidden tonight".

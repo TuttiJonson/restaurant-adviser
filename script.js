@@ -226,7 +226,7 @@ const STARTING_PLACES = [
     closeness: 2,    // up to this many points, falling to 0 at closeKm
     notBeen: 1,      // only when "Been before" is Either
     closeKm: 15,
-    speedKmh: 50     // assumed average speed for the drive-time estimate
+    speedKmh: 30     // assumed average speed for the drive-time estimate
   };
 
   const BRACKETS = [
