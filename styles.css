@@ -2,11 +2,11 @@
 
 /* Fonts are self-hosted. Put the woff2 files in /fonts (see PRD.md).
    If a file is missing, the fallback stack in --sans / --mono is used. */
-@font-face { font-family: "Archivo"; font-weight: 400; font-display: swap; src: local("Archivo"), url("fonts/Archivo-400.woff2") format("woff2"); }
-@font-face { font-family: "Archivo"; font-weight: 500; font-display: swap; src: local("Archivo Medium"), url("fonts/Archivo-500.woff2") format("woff2"); }
-@font-face { font-family: "Archivo"; font-weight: 700; font-display: swap; src: local("Archivo Bold"), url("fonts/Archivo-700.woff2") format("woff2"); }
-@font-face { font-family: "Archivo"; font-weight: 800; font-display: swap; src: local("Archivo ExtraBold"), url("fonts/Archivo-800.woff2") format("woff2"); }
-@font-face { font-family: "DM Mono"; font-weight: 400; font-display: swap; src: local("DM Mono"), url("fonts/DMMono-400.woff2") format("woff2"); }
+@font-face { font-family: "Archivo"; font-weight: 400; font-display: swap; src: local("Archivo"), url("fonts/archivo-400.woff2") format("woff2"); }
+@font-face { font-family: "Archivo"; font-weight: 500; font-display: swap; src: local("Archivo Medium"), url("fonts/archivo-500.woff2") format("woff2"); }
+@font-face { font-family: "Archivo"; font-weight: 700; font-display: swap; src: local("Archivo Bold"), url("fonts/archivo-700.woff2") format("woff2"); }
+@font-face { font-family: "Archivo"; font-weight: 800; font-display: swap; src: local("Archivo ExtraBold"), url("fonts/archivo-800.woff2") format("woff2"); }
+@font-face { font-family: "DM Mono"; font-weight: 400; font-display: swap; src: local("DM Mono"), url("fonts/dm-mono-400.woff2") format("woff2"); }
 
 :root {
   --ink: #141414;
