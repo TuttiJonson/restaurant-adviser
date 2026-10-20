@@ -1,0 +1,132 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Oly's Recs</title>
+  <meta name="description" content="Picks one restaurant from your own saved list for tonight.">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+  <header class="topbar">
+    <div class="wrap topbar-inner">
+      <a class="logo" href="#tonight">OLY'S RECS</a>
+      <nav class="tabs" aria-label="Main">
+        <a href="#tonight" id="tab-tonight">Tonight</a>
+        <a href="#list" id="tab-list">My list</a>
+      </nav>
+    </div>
+  </header>
+
+  <main>
+
+    <!-- ===================== TONIGHT ===================== -->
+    <section id="view-tonight" aria-labelledby="tonight-title">
+      <div class="band">
+        <div class="wrap">
+          <h1 id="tonight-title">What are you feeling tonight?</h1>
+
+          <form id="tonight-form" novalidate>
+            <div class="form-grid">
+              <fieldset class="group">
+                <legend class="label">Been before</legend>
+                <div class="chips" id="g-been"></div>
+              </fieldset>
+              <fieldset class="group">
+                <legend class="label">Budget (max)</legend>
+                <div class="brackets" id="g-budget"></div>
+              </fieldset>
+              <fieldset class="group">
+                <legend class="label">Craving</legend>
+                <div class="chips" id="g-craving"></div>
+              </fieldset>
+              <fieldset class="group">
+                <legend class="label">Minutes I'll drive</legend>
+                <div class="chips" id="g-minutes"></div>
+              </fieldset>
+            </div>
+            <button type="submit" class="btn primary" id="pick-btn">Pick one for me</button>
+          </form>
+        </div>
+      </div>
+
+      <div class="wrap result-wrap">
+        <div id="notice" class="notice" role="status" hidden></div>
+        <div id="result" aria-live="polite"></div>
+        <p class="footnote">Distances are straight-line estimates, so the drive may run longer. There are no opening hours here, so call ahead.</p>
+      </div>
+    </section>
+
+    <!-- ===================== MY LIST ===================== -->
+    <section id="view-list" aria-labelledby="list-title" hidden>
+      <div class="wrap list-wrap">
+        <h1 id="list-title" class="page-title">My list</h1>
+
+        <div class="list-layout">
+          <div>
+            <div id="data-notice" class="notice" role="status" hidden></div>
+            <div id="list-body"></div>
+          </div>
+
+          <aside class="panel" aria-labelledby="add-title">
+            <h2 class="panel-head" id="add-title">Add a place</h2>
+            <form id="add-form" class="panel-body" novalidate>
+
+              <div class="field">
+                <label class="label" for="f-name">Name</label>
+                <input id="f-name" type="text" autocomplete="off" aria-describedby="err-name">
+                <p class="field-error" id="err-name" hidden></p>
+              </div>
+
+              <div class="field">
+                <label class="label" for="f-link">Google Maps link</label>
+                <input id="f-link" type="text" inputmode="url" autocomplete="off" placeholder="https://www.google.com/maps/place/Name/@42.3812,-71.0998,17z" aria-describedby="err-link">
+                <p class="field-error" id="err-link" hidden></p>
+              </div>
+
+              <div class="field">
+                <label class="label" for="f-coords">Coordinates</label>
+                <input id="f-coords" class="mono-input" type="text" autocomplete="off" placeholder="42.3812, -71.0998" aria-describedby="err-coords hint-coords">
+                <p class="field-error" id="err-coords" hidden></p>
+                <p class="hint" id="hint-coords">Right-click the spot in Google Maps and copy the two numbers. Typed numbers win over the link.</p>
+              </div>
+
+              <fieldset class="field group">
+                <legend class="label">Bracket</legend>
+                <div class="brackets" id="g-add-bracket"></div>
+                <p class="field-error" id="err-bracket" hidden></p>
+              </fieldset>
+
+              <fieldset class="field group">
+                <legend class="label">Tags</legend>
+                <div class="chips" id="g-add-tags"></div>
+                <p class="field-error" id="err-tags" hidden></p>
+                <div class="tag-add">
+                  <label class="sr-only" for="f-newtag">New tag</label>
+                  <input id="f-newtag" type="text" autocomplete="off" placeholder="New tag" aria-describedby="err-newtag">
+                  <button type="button" class="btn accent" id="add-tag-btn">Add</button>
+                </div>
+                <p class="field-error" id="err-newtag" hidden></p>
+              </fieldset>
+
+              <div class="field">
+                <label class="label" for="f-desc">Short description (optional)</label>
+                <input id="f-desc" type="text" maxlength="160" autocomplete="off">
+              </div>
+
+              <button type="submit" class="btn primary block" id="save-btn">Save to the list</button>
+              <p class="quiet" id="save-status" role="status"></p>
+            </form>
+          </aside>
+        </div>
+
+        <p class="footnote">Distances are straight-line estimates, so the drive may run longer. There are no opening hours here, so call ahead.</p>
+      </div>
+    </section>
+
+  </main>
+
+  <script src="script.js"></script>
+</body>
+</html>
