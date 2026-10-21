@@ -379,7 +379,7 @@ const STARTING_PLACES = [
   /* ---------- distance ---------- */
 
   // calculates the straight-line distance between your location and the restaurant, accounting for Earth's curvature.
-  function haversineKm(a, b) {. // this function calculates the distance between two points. a is the first locarion and b is the second location 
+  function haversineKm(a, b) { // this function calculates the distance between two points. a is the first locarion and b is the second location 
     const R = 6371, rad = Math.PI / 180; // the earth approx radius in kilometers 
     const dLat = (b.lat - a.lat) * rad, dLng = (b.lng - a.lng) * rad;
     const x = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
