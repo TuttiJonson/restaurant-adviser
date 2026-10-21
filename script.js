@@ -3,7 +3,6 @@
    Copied into the page's state and saved to localStorage the first time
    a browser opens the page. Source of each rule: PRD.md.
 
-   - HOME (below) is the fixed starting point all distances are measured from.
    - lat/lng: the LAST !3d<lat>!4d<lng> pair in each Google Maps link.
    - bracket: 1 = $ (under $20), 2 = $$ ($20-50), 3 = $$$ ($50-100),
      4 = $$$$ ($100+). Worked out from the price range I gave (the middle,
@@ -11,9 +10,6 @@
      I gave is in a comment on each place.
    - visited: true if I have been there, false if not. No dates are kept.
    ------------------------------------------------------------------ */
-
-// The fixed starting point for every distance. Edit these two numbers.
-const HOME = { lat: 42.3601, lng: -71.0589 };
 
 const STARTING_TAGS = [
   "Greek", "Latin", "Middle Eastern", "American",
@@ -273,11 +269,13 @@ import { DEFAULT_PROFILE, describeTrip, withinWalkLimit, distanceScore } from ".
     dataError: false,           // true if the saved data was unreadable
     // The choices on the Tonight form. 4 = any budget, null minutes = any time.
     form: { been: "either", budget: 4, craving: "anything", minutes: null },
-    view: { kind: "prompt" },   // prompt | pick | nomatch | nothingleft
+    view: { kind: "prompt" },   // prompt | loading | pick | nomatch | nothingleft
     currentId: null,
     shown: [],                  // ids shown in this round
     hidden: [],                 // "Not tonight" ids, until Start over
     logged: null,               // name, right after "I'm going"
+    position: null,             // { lat, lng }, kept only while the page is open
+    geo: "idle",                // idle | loading | ok | denied
     confirmDelete: null,        // id of the place waiting for a second "Delete" click
     add: { bracket: null, tags: [] }   // choices made so far in the Add form
   };
@@ -381,13 +379,13 @@ import { DEFAULT_PROFILE, describeTrip, withinWalkLimit, distanceScore } from ".
   // Does this place have coordinates?  Checking the actual coordinate. 
   function hasCoords(p) { return typeof p.lat === "number" && typeof p.lng === "number"; }
 
-  // The trip from HOME to each place, by place id, worked out once per ranking
-  // pass by distance.js. A place with no coordinates is null.
+  // The trip from me to each place, by place id, worked out once per ranking
+  // pass by distance.js. A place with no coordinates (or no position) is null.
   let trips = {};
   function planTrips() {
     trips = {};
     state.places.forEach(function (p) {
-      trips[p.id] = describeTrip(HOME, p, DEFAULT_PROFILE);
+      trips[p.id] = describeTrip(state.position, p, DEFAULT_PROFILE);
     });
   }
   function tripOf(p) { return trips[p.id] || null; }
@@ -622,16 +620,41 @@ import { DEFAULT_PROFILE, describeTrip, withinWalkLimit, distanceScore } from ".
     if (heading && res.kind !== "prompt") { heading.setAttribute("tabindex", "-1"); heading.focus(); }
   }
 
+  /* ---------- position ---------- */
+
+  // Asks the browser for my location, then calls done() either way.
+  // geo tracks the progress: loading -> ok (got it) or denied (refused, no
+  // support, or took over 10 seconds). `finished` makes sure we only
+  // finish once, even if both the timer and the browser answer.
+  function requestPosition(done) {
+    if (!navigator.geolocation) { state.position = null; state.geo = "denied"; done(); return; }
+    state.geo = "loading";
+    let finished = false;
+    function finish(pos) {
+      if (finished) return;
+      finished = true;
+      clearTimeout(timer);
+      if (pos) { state.position = { lat: pos.coords.latitude, lng: pos.coords.longitude }; state.geo = "ok"; }
+      else { state.position = null; state.geo = "denied"; }
+      done();
+    }
+    const timer = setTimeout(function () { finish(null); }, 10000);
+    navigator.geolocation.getCurrentPosition(finish, function () { finish(null); }, { timeout: 10000, maximumAge: 60000 });
+  }
+
   /* ---------- Tonight: events ---------- */
 
-  // "Pick one for me" was clicked. Resets the round, then runs the pick.
+  // "Pick one for me" was clicked. Resets the round, shows the loading
+  // state, gets my location, then runs the pick.
   function onPick(e) {
     e.preventDefault();   // stop the form from reloading the page
-    if (state.places.length === 0) return;
+    if (state.places.length === 0 || state.geo === "loading") return;
     state.shown = [];
     state.logged = null;
+    state.view = { kind: "loading" };
     state.confirmDelete = null;
-    runPick();
+    requestPosition(runPick);
+    renderTonight();
   }
 
   // "Pick again": a new pick, without hiding the current one for good.
@@ -663,6 +686,7 @@ import { DEFAULT_PROFILE, describeTrip, withinWalkLimit, distanceScore } from ".
     state.shown = [];
     state.hidden = [];
     state.logged = null;
+    state.geo = state.geo === "loading" ? "loading" : "idle";
     buildTonightForm();
     renderTonight();
   }
@@ -670,7 +694,7 @@ import { DEFAULT_PROFILE, describeTrip, withinWalkLimit, distanceScore } from ".
   /* ---------- Tonight: drawing ---------- */
 
   // The small line under the name: distance, walking time and price (or
-  // "distance unknown" when the place has no coordinates).
+  // "distance unknown" when we have no location).
   function metaLine(p) {
     const trip = tripOf(p);
     const parts = [trip ? trip.label : "distance unknown", symbolFor(p)];
@@ -678,11 +702,22 @@ import { DEFAULT_PROFILE, describeTrip, withinWalkLimit, distanceScore } from ".
   }
 
   // Redraws the whole Tonight result area from state. It clears the area, then
-  // draws whichever screen state.view.kind says: empty list, prompt,
+  // draws whichever screen state.view.kind says: empty list, prompt, loading,
   // nomatch, nothingleft, or pick (the winning restaurant card).
   function renderTonight() {
     const pickBtn = $("pick-btn");
-    pickBtn.disabled = state.places.length === 0;
+    const loading = state.geo === "loading";
+    pickBtn.disabled = state.places.length === 0 || loading;
+    pickBtn.textContent = loading ? "Finding you..." : "Pick one for me";
+
+    const notice = $("notice");
+    const attempted = state.view.kind !== "prompt" && state.view.kind !== "loading";
+    if (state.geo === "denied" && attempted && state.places.length > 0) {
+      notice.textContent = "Location is off, so distance is skipped.";
+      notice.hidden = false;
+    } else {
+      notice.hidden = true;
+    }
 
     const out = $("result");
     out.replaceChildren();
@@ -699,6 +734,13 @@ import { DEFAULT_PROFILE, describeTrip, withinWalkLimit, distanceScore } from ".
     const v = state.view;
     if (v.kind === "prompt") {
       out.append(h("p", { class: "prompt", text: "Pick one for me to get started." }));
+    } else if (v.kind === "loading") {
+      out.append(
+        h("p", { class: "label result-label", text: "Finding where you are" }),
+        h("div", { class: "loading-row" },
+          h("div", { class: "placeholder-tile" }),
+          h("div", {}, h("div", { class: "skeleton" }), h("div", { class: "skeleton" }), h("div", { class: "skeleton" }),
+            h("p", { class: "loading-note", text: "Finding where you are..." }))));
     } else if (v.kind === "nomatch") {
       out.append(h("div", { class: "message" },
         h("p", { class: "label err", text: "No match" }),

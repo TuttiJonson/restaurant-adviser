@@ -6,7 +6,7 @@ Restaurant Adviser is a browser tool for one person, the owner of the list, that
 
 **Tonight tab**
 1. Choose **Been before** (New, Been before or Either), a **Budget** maximum, a **Craving**, and optionally the **Minutes I'll walk**.
-2. Press **Pick one for me**. Distances are measured from a fixed starting point (`HOME` at the top of `script.js`), so no location permission is needed.
+2. Press **Pick one for me**. Allow location when the browser asks, so it can work out distances. If you say no, the pick still works without distance.
 3. Use **Pick again** for the next-best place, **Not tonight** to hide a place until you start over, **I'm going** to mark it as been, and **Start over** to clear tonight's choices. Your list is never touched.
 It will select it from the list that you have saved 
 

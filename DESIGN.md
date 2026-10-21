@@ -276,7 +276,7 @@ High-contrast neutrals, one brand accent, one action color, and one loud backgro
 - **Line-soft `#EFEDE8`:** 1px dividers inside panels, where the rule should read quieter than the panel's own border.
 - **Field `#D6D3CC`:** 1px input borders and tertiary button borders. Lighter than ink so a form does not read as heavy as the content around it.
 - **Surface-muted `#EFEDE8`:** loading placeholders and empty-state blocks.
-- **Notice `#FFF2CF` on `#5C4708`:** the one informational banner, used when saved data can't be read.
+- **Notice `#FFF2CF` on `#5C4708`:** the one informational banner, used when location is unavailable.
 - **Danger `#B8321C`:** field-level validation only. Never a background, never a button. About 6:1 on white.
 - **Dot `#B8B5AE`:** the middle dot between values in a meta line.
 
@@ -390,7 +390,8 @@ One entry per state in PRD.md. Wording is in PRD.md. This describes the look.
 
 - **message-empty** (Tonight, My list and "nothing left tonight"): a muted block on surface-muted with a field border, 8px radius, a heading in place-name or h2 size, one sentence in secondary, and, on Tonight only, one primary button ("Go to My list" or "Start over"). On My list the add form beside it is the call to action, so that version has no button. Never a blank page.
 - **message-no-match:** a headline at h2 size ("Nothing fits tonight."), then one sentence in body-md naming the constraint that emptied the result ("Nothing under $20 within 10 min."). The form above stays editable. A quiet "Start over" (button-tertiary) sits below it, so hidden places can always be cleared. There are no loosening buttons in version 1.
-- **message-notice** (saved data that can't be read): a notice banner with an ink border, above the list.
+- **message-loading:** surface-muted blocks in the shape of the result (tile and two lines), plus a bordered row reading "Finding where you are..." in meta. There is no spinner and no skip button. If no position comes back after 10 seconds, the page moves to the location-denied state.
+- **message-notice** (location denied or unavailable, and also saved data that can't be read): a notice banner with an ink border, above the result or above the list. For location, the result still appears and the meta line reads "distance unknown".
 - **message-prompt** (after Start over): one quiet line in secondary where the result was.
 - **message-logged** (after "I'm going"): one line in meta size, weight 600, in ink, with a 3px ink bar at its left. It takes the place of the quiet "N hidden tonight" line directly under the result buttons, so nothing moves. No alert() box, no toast, no overlay.
 - **footnote:** secondary text above a hairline rule at the bottom of every view. Distances are straight-line estimates, there are no opening hours, call ahead. It stays honest about what the tool cannot do.
@@ -399,7 +400,7 @@ One entry per state in PRD.md. Wording is in PRD.md. This describes the look.
 
 - **panel:** 1.5px ink border, 8px radius, `overflow: hidden`, with a solid tertiary header strip carrying the title in 800 weight white.
 - **color-tile:** a flat square in the cuisine color, with the first tag in mono-xs white at its bottom edge. No photo, no gradient, no rounding. 200px on desktop, 150px tall on a phone, 48 to 56px in list rows.
-- **list-row:** tile, name, meta, the short description in meta size and secondary color (clamped to two lines, absent if the place has none), mono value on the right, then actions, above a 1px line rule. "Not yet" is shown in tertiary and "Been" in ink. The mono value is the distance ("3.1 km"). It reads "no coords" in secondary for a place with no saved location.
+- **list-row:** tile, name, meta, the short description in meta size and secondary color (clamped to two lines, absent if the place has none), mono value on the right, then actions, above a 1px line rule. "Not yet" is shown in tertiary and "Been" in ink. The mono value is the distance ("3.1 km"). It is left blank until the first pick has given a position, and reads "no coords" in secondary for a place with no saved location. A blank value keeps its space, so rows don't shift when it fills in.
 - **Meta row:** values separated by a `#B8B5AE` middle dot: `about 3.1 km · ~4 min walk · $$`.
 
 ## Do's and Don'ts
@@ -409,7 +410,7 @@ One entry per state in PRD.md. Wording is in PRD.md. This describes the look.
 - Keep the yellow band full-bleed and loud. It carries the whole identity.
 - Keep numbers in DM Mono and language in Archivo. The split is the point.
 - Use inversion, not hue, to show that a chip is selected.
-- Let the empty and error states be real screens with real sentences.
+- Let the empty, loading and error states be real screens with real sentences.
 - Write buttons as verbs: "Pick one for me", "I'm going", "Been", "Start over".
 - Keep the one-line reason naming the factors that decided it: "Matches Greek, and it's about 8 min away."
 - Say in the footnote what the tool cannot do.
