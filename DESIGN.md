@@ -276,7 +276,7 @@ High-contrast neutrals, one brand accent, one action color, and one loud backgro
 - **Line-soft `#EFEDE8`:** 1px dividers inside panels, where the rule should read quieter than the panel's own border.
 - **Field `#D6D3CC`:** 1px input borders and tertiary button borders. Lighter than ink so a form does not read as heavy as the content around it.
 - **Surface-muted `#EFEDE8`:** loading placeholders and empty-state blocks.
-- **Notice `#FFF2CF` on `#5C4708`:** the one informational banner, used when location is unavailable.
+- **Notice `#FFF2CF` on `#5C4708`:** the one informational banner, used when saved data can't be read.
 - **Danger `#B8321C`:** field-level validation only. Never a background, never a button. About 6:1 on white.
 - **Dot `#B8B5AE`:** the middle dot between values in a meta line.
 
@@ -290,7 +290,7 @@ Two families.
 
 **Archivo** carries everything a person reads as language: headings, place names, body, buttons, labels. It is a grotesque with real weight at 800, which is what makes the headings land.
 
-**DM Mono** carries only things that are measured: distances, drive times, coordinates, dollar ranges, tile labels. Keeping numbers in mono makes the page feel like an instrument rather than a brochure. Never set a sentence in it.
+**DM Mono** carries only things that are measured: distances, walking times, coordinates, dollar ranges, tile labels. Keeping numbers in mono makes the page feel like an instrument rather than a brochure. Never set a sentence in it.
 
 **Loading the fonts.** Nothing is loaded from Google Fonts or any other CDN. The font files (woff2: Archivo at weights 400, 500, 700 and 800, DM Mono at 400) are saved in the repo and loaded with `@font-face` from a local path. If a file fails to load, the fallback is `"Helvetica Neue", Helvetica, sans-serif` for Archivo and `ui-monospace, Menlo, monospace` for DM Mono. Those fallbacks are a safety net, not the design.
 
@@ -302,7 +302,7 @@ Two families.
 | body-md | The one-line reason, and any explanatory paragraph. |
 | meta | Dot-separated meta lines, hints, footnotes. |
 | label-caps | Section labels above each row of controls. |
-| mono | Distances and drive times. |
+| mono | Distances and walking times. |
 | mono-xs | Dollar ranges inside bracket buttons, cuisine labels on tiles. |
 
 Headings are always left-aligned. Tracking is negative on anything above 19px and strongly positive on label-caps. That contrast between tight headlines and wide small caps is a large part of the identity.
@@ -313,13 +313,13 @@ The page is 1232px wide at most, centred, with 24px of side padding on desktop a
 
 **Tonight**, in the order a visitor sees it:
 
-1. The yellow band. It is full-bleed, bordered 1.5px ink along the bottom, and holds the question and the entire form. Nothing competes with it. The form is four labelled rows (been before, budget, craving, minutes I'll drive), then one cobalt button. On desktop the first two rows sit side by side and the second two sit side by side below them, so the whole form is four lines deep and visible without scrolling.
+1. The yellow band. It is full-bleed, bordered 1.5px ink along the bottom, and holds the question and the entire form. Nothing competes with it. The form is four labelled rows (been before, budget, craving, minutes I'll walk), then one cobalt button. On desktop the first two rows sit side by side and the second two sit side by side below them, so the whole form is four lines deep and visible without scrolling.
 2. Immediately under the band, the result: a 200px flat color tile on the left, and to its right the place name at h2, a mono meta line, one sentence of reason, and the place's short description in meta size and secondary color (nothing if it has none). Four buttons follow (I'm going, Pick again, Not tonight, Start over), then a quiet line counting what was hidden.
 3. Below a hairline rule, the footnote admitting that distances are straight-line estimates.
 
 **My list** reads the same way: heading, then a plain list of rows on the left and a sticky "Add a place" panel on the right, stuck at top: 24px. Each row is a 56px tile, the name, a meta line of tags, bracket and whether it has been visited, a short description under it in secondary, the distance in mono, then Been and Delete.
 
-**On a phone** everything becomes one column in the same order. The band keeps its full-bleed yellow but drops to 24px of vertical padding. Control rows stack rather than pair. Bracket and drive buttons stretch to equal width across the row, and craving chips wrap. The result tile becomes a 150px-tall full-width block with the cuisine label at its bottom edge. The four result buttons become two rows of two. On My list, each row's Been and Delete buttons move below the row, and the add panel falls to the bottom of the page.
+**On a phone** everything becomes one column in the same order. The band keeps its full-bleed yellow but drops to 24px of vertical padding. Control rows stack rather than pair. Bracket and walking buttons stretch to equal width across the row, and craving chips wrap. The result tile becomes a 150px-tall full-width block with the cuisine label at its bottom edge. The four result buttons become two rows of two. On My list, each row's Been and Delete buttons move below the row, and the add panel falls to the bottom of the page.
 
 Minimum touch target is 44px on anything clickable, at every width.
 
@@ -390,8 +390,7 @@ One entry per state in PRD.md. Wording is in PRD.md. This describes the look.
 
 - **message-empty** (Tonight, My list and "nothing left tonight"): a muted block on surface-muted with a field border, 8px radius, a heading in place-name or h2 size, one sentence in secondary, and, on Tonight only, one primary button ("Go to My list" or "Start over"). On My list the add form beside it is the call to action, so that version has no button. Never a blank page.
 - **message-no-match:** a headline at h2 size ("Nothing fits tonight."), then one sentence in body-md naming the constraint that emptied the result ("Nothing under $20 within 10 min."). The form above stays editable. A quiet "Start over" (button-tertiary) sits below it, so hidden places can always be cleared. There are no loosening buttons in version 1.
-- **message-loading:** surface-muted blocks in the shape of the result (tile and two lines), plus a bordered row reading "Finding where you are..." in meta. There is no spinner and no skip button. If no position comes back after 10 seconds, the page moves to the location-denied state.
-- **message-notice** (location denied or unavailable, and also saved data that can't be read): a notice banner with an ink border, above the result or above the list. For location, the result still appears and the meta line reads "distance unknown".
+- **message-notice** (saved data that can't be read): a notice banner with an ink border, above the list.
 - **message-prompt** (after Start over): one quiet line in secondary where the result was.
 - **message-logged** (after "I'm going"): one line in meta size, weight 600, in ink, with a 3px ink bar at its left. It takes the place of the quiet "N hidden tonight" line directly under the result buttons, so nothing moves. No alert() box, no toast, no overlay.
 - **footnote:** secondary text above a hairline rule at the bottom of every view. Distances are straight-line estimates, there are no opening hours, call ahead. It stays honest about what the tool cannot do.
@@ -400,8 +399,8 @@ One entry per state in PRD.md. Wording is in PRD.md. This describes the look.
 
 - **panel:** 1.5px ink border, 8px radius, `overflow: hidden`, with a solid tertiary header strip carrying the title in 800 weight white.
 - **color-tile:** a flat square in the cuisine color, with the first tag in mono-xs white at its bottom edge. No photo, no gradient, no rounding. 200px on desktop, 150px tall on a phone, 48 to 56px in list rows.
-- **list-row:** tile, name, meta, the short description in meta size and secondary color (clamped to two lines, absent if the place has none), mono value on the right, then actions, above a 1px line rule. "Not yet" is shown in tertiary and "Been" in ink. The mono value is the distance ("3.1 km"). It is left blank until the first pick has given a position, and reads "no coords" in secondary for a place with no saved location. A blank value keeps its space, so rows don't shift when it fills in.
-- **Meta row:** values separated by a `#B8B5AE` middle dot: `about 3.1 km · ~4 min drive · $$`.
+- **list-row:** tile, name, meta, the short description in meta size and secondary color (clamped to two lines, absent if the place has none), mono value on the right, then actions, above a 1px line rule. "Not yet" is shown in tertiary and "Been" in ink. The mono value is the distance ("3.1 km"). It reads "no coords" in secondary for a place with no saved location.
+- **Meta row:** values separated by a `#B8B5AE` middle dot: `about 3.1 km · ~4 min walk · $$`.
 
 ## Do's and Don'ts
 
@@ -410,7 +409,7 @@ One entry per state in PRD.md. Wording is in PRD.md. This describes the look.
 - Keep the yellow band full-bleed and loud. It carries the whole identity.
 - Keep numbers in DM Mono and language in Archivo. The split is the point.
 - Use inversion, not hue, to show that a chip is selected.
-- Let the empty, loading and error states be real screens with real sentences.
+- Let the empty and error states be real screens with real sentences.
 - Write buttons as verbs: "Pick one for me", "I'm going", "Been", "Start over".
 - Keep the one-line reason naming the factors that decided it: "Matches Greek, and it's about 8 min away."
 - Say in the footnote what the tool cannot do.

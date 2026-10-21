@@ -10,7 +10,7 @@ Turn my saved restaurant list into a proactive tool. Given tonight's mood, it re
 
 Audience: only me. No other users, no accounts.
 
-Key action: set what I feel like tonight (been before or new, budget, craving, optional minutes I will drive), press "Pick one for me", and get one restaurant with a short reason.
+Key action: set what I feel like tonight (been before or new, budget, craving, optional minutes I will walk), press "Pick one for me", and get one restaurant with a short reason.
 
 ## Features
 
@@ -22,7 +22,7 @@ Where the data lives:
 - After that, every change (new place, Been, Delete, new tag) is saved to localStorage and stays in that one browser. A different device or browser has its own copy.
 - Changing the array later does not change a browser that already has a saved list, unless I clear that site's data in the browser.
 - The array is public on GitHub Pages, and I have agreed to that.
-- Hidden places, tonight's form choices, and my position are never saved.
+- Hidden places, tonight's form choices, and tonight's results are never saved.
 
 ### Tab 1: Tonight
 
@@ -30,9 +30,9 @@ Where the data lives:
    - Been before: New / Been before / Either.
    - Budget: four brackets as a maximum, with the range printed under each: $ under $20, $$ $20-50, $$$ $50-100, $$$$ $100+. Per person, in dollars.
    - Craving: chips built from the tags on my list, plus "Anything".
-   - Minutes I'll drive: 10 / 20 / 30 / Any. Optional.
+   - Minutes I'll walk: 10 / 20 / 30 / Any. Optional.
    - "Pick one for me" button.
-2. Result: one restaurant with its color tile (first tag as a label), a one-line reason (for example "Matches Greek, and it's about 15 min away."), the place's short description if it has one, and a meta line such as "about 3.8 km · ~15 min drive · $$". No scores and no chips are shown anywhere. The drive time is one whole number of minutes worked out in `distance.js`: 3 minutes of overhead (parking, getting out, lights) plus the straight-line distance times a road factor of 1.4, divided by a speed of 22 km/h. It is labeled "about" (or "~") and assumes typical traffic.
+2. Result: one restaurant with its color tile (first tag as a label), a one-line reason (for example "Matches Greek, and it's about 15 min away."), the place's short description if it has one, and a meta line such as "about 3.8 km · ~15 min walk · $$". No scores and no chips are shown anywhere. The walking time is one whole number of minutes worked out in `distance.js`: the straight-line distance times a road factor of 1.3, divided by a walking speed of 5 km/h. It is measured from one fixed starting point (see below) and is labeled "about" (or "~").
 3. Buttons on the result:
    - Pick again: shows the next-best place. Places already shown this round are not repeated.
    - Not tonight: hides the place from every pick until Start over. A quiet line shows "N hidden tonight".
@@ -40,21 +40,21 @@ Where the data lives:
 4. Start over: clears the form, the result and the hidden places. The saved list is never touched.
 
 How the pick is worked out:
-- Hard cuts first: been before, budget, and drive minutes (only if filled in).
+- Hard cuts first: been before, budget, and walking minutes (only if filled in).
 - Then the remaining places are ranked in this order. Each step only matters when the one above it is equal:
   1. Craving match (a tag matches the chosen craving; equal for everyone if "Anything").
   2. Price: closest to the bracket I chose. Budget is still a maximum, but a place at exactly my bracket ranks above one a bracket lower, and so on. For example, with $$$$ chosen, a $$$$ place beats a $ place.
-  3. Closeness (nearer ranks higher, falling to nothing at 15 km; only if my position and the place's coordinates are both known).
+  3. Closeness (nearer ranks higher, falling to nothing at 15 km; only if the place's coordinates are known).
   4. Not been yet. This is only the last tiebreaker, so a new place wins only when it matches a been-before place on everything above. It applies only when Been before is "Either"; it is already settled when I choose New or Been before. It uses the been flag, not dates, and is what lets the list drain: each time I mark a place as been, it loses this edge.
-- If places are still tied after all four steps, one of them is chosen at random, so the pick varies. This matters most when Craving is "Anything", my position is unknown, and the places share a price bracket.
+- If places are still tied after all four steps, one of them is chosen at random, so the pick varies. This matters most when Craving is "Anything", and the places share a price bracket.
 - Alternatives: if my craving has no place left that fits (after the hard cuts, and not counting places already shown this round), the page tries an alternative tag instead and says so in the reason, for example "No Italian fits tonight, so here's a Greek alternative." The pairs are: Italian to Greek, Vietnamese to Chinese, Greek and Middle Eastern to each other, Latin and Spanish to each other, American and Seafood to each other. Tags I add myself have no alternative. If the alternative has nothing either, the page picks from what fits and the reason starts "No Italian fits tonight."
 - There is no waiting or staleness factor in version 1. Nothing in the scoring depends on the order I added places.
-- All distance and drive-time maths lives in `distance.js` (straight-line distance, road factor, speed, overhead, the "Minutes I'll drive" test and the 0 to 1 distance score). Its constants are plain values so I can calibrate them against real Google Maps drive times with `node tools/calibrate.js`. A place with no coordinates is never dropped: it passes the drive filter and gets a neutral 0.5 distance score.
-- My position comes from the browser (`navigator.geolocation`) when I press the button. Distance is calculated in JavaScript from the saved coordinates.
+- All distance and walking-time maths lives in `distance.js` (straight-line distance, road factor, speed, overhead, the "Minutes I'll walk" test and the 0 to 1 distance score). Its constants are plain values so I can calibrate them against real Google Maps walking times with `node tools/calibrate.js`. A place with no coordinates is never dropped: it passes the walking filter and gets a neutral 0.5 distance score.
+- There is no GPS and no location permission. All distances are measured from one fixed starting point, a `HOME` latitude and longitude at the top of `script.js` that I edit myself. Distance is calculated in JavaScript from `HOME` and each place's saved coordinates.
 
 ### Tab 2: My list
 
-1. The list shows plain data per place: name, tags, bracket, visited or not, a one-line short description (if it has one), and distance. No chart, stat tiles or sort chips. The distance uses the position my browser gave at my last "Pick one for me" press. That position is kept only while the page is open and is never saved. Until I've pressed the button once and allowed location, the distance is blank. A place saved without coordinates reads "no coords".
+1. The list shows plain data per place: name, tags, bracket, visited or not, a one-line short description (if it has one), and distance. No chart, stat tiles or sort chips. The distance is measured from `HOME` and shows at once. A place saved without coordinates reads "no coords".
 2. Each row has "Been" (marks the place as been; once marked, the button reads "Undo been" so a slip can be taken back) and "Delete" (the first press changes the button to "Sure? Delete", and the second press deletes, so a place can't be lost by one tap).
 3. Add a place form:
    - Name.
@@ -87,7 +87,7 @@ See DESIGN.md.
 
 ## States
 
-The JavaScript decides which state the page is in from its data: the saved places, tonight's form choices, the hidden places, and the position. The look of each state comes from DESIGN.md. No state uses an alert() box.
+The JavaScript decides which state the page is in from its data: the saved places, tonight's form choices, and the hidden places. The look of each state comes from DESIGN.md. No state uses an alert() box.
 
 ### Empty
 
@@ -120,10 +120,9 @@ Tonight:
 
 There is at least one place and the form fits at least one of them.
 
-- Tonight: one pick appears with its tile, name, meta line ("about 3.8 km · ~15 min drive · $$"), a one-line reason, its short description if it has one, the buttons (I'm going, Pick again, Not tonight, Start over), and the line "N hidden tonight" (or, right after "I'm going", the "Logged: ..." confirmation). No score, no chips.
+- Tonight: one pick appears with its tile, name, meta line ("about 3.8 km · ~15 min walk · $$"), a one-line reason, its short description if it has one, the buttons (I'm going, Pick again, Not tonight, Start over), and the line "N hidden tonight" (or, right after "I'm going", the "Logged: ..." confirmation). No score, no chips.
 - My list: the saved places, one row each, with its short description (if it has one), a visited or "Not yet" label, a distance (blank until my first pick, "no coords" if the place has none), and Been and Delete. A new place appears at the top; "Been" changes its label at once.
-- Partial: my location is denied, or a place has no coordinates. The page shows "Location is off, so distance is skipped." above the result, and a place without coordinates reads "distance unknown". The pick is still given.
-- Loading: after "Pick one for me", the button reads "Finding you..." and the result slot says "Finding where you are" until my position comes back, fails, or 10 seconds pass (then the page moves to the partial state above).
+- Partial: a place has no coordinates, so its meta line reads "distance unknown". The pick is still given.
 
 ### After a reset
 

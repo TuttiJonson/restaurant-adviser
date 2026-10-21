@@ -1,20 +1,20 @@
 /* ------------------------------------------------------------------
-   DISTANCE AND DRIVE TIME
-   All the distance maths lives here: straight-line distance, the drive
-   time estimate, the "Minutes I'll drive" test and the distance score.
+   DISTANCE AND WALKING TIME
+   All the distance maths lives here: straight-line distance, the walking
+   time estimate, the "Minutes I'll walk" test and the distance score.
    The constants in PROFILES are starting values. Calibrate them against
-   real Google Maps drive times with `node tools/calibrate.js`.
+   real Google Maps walking times with `node tools/calibrate.js`.
    ------------------------------------------------------------------ */
 
 // A profile says how a trip behaves.
 //   roadFactor: roads wind, so the real route is this many times the straight line
 //   speedKmh:   average speed along the route, stops and lights included
-//   overhead:   fixed minutes added to every trip (parking, getting out, lights)
+//   overhead:   fixed minutes added to every trip (0 for walking)
 export const PROFILES = {
-  city: { roadFactor: 1.4, speedKmh: 22, overhead: 3 }
+  walking: { roadFactor: 1.3, speedKmh: 5, overhead: 0 }
 };
 
-export const DEFAULT_PROFILE = PROFILES.city;
+export const DEFAULT_PROFILE = PROFILES.walking;
 
 // With no time limit chosen, a place this many minutes away scores 0 for distance.
 const ANY_CEILING_MIN = 45;
@@ -34,27 +34,27 @@ function hasCoords(p) {
   return !!p && typeof p.lat === "number" && typeof p.lng === "number";
 }
 
-// Whole drive minutes for a straight-line distance under a profile:
+// Whole walking minutes for a straight-line distance under a profile:
 // overhead plus the winding route at the average speed.
-function driveMinutes(straightKm, profile) {
+function walkMinutes(straightKm, profile) {
   return Math.round(profile.overhead + (straightKm * profile.roadFactor) / profile.speedKmh * 60);
 }
 
 // Describes the trip from `from` to `place`: { straightKm, minutes, label },
 // or null when either end has no coordinates. `label` is the finished text,
-// like "about 3.8 km · ~15 min drive".
+// like "about 3.8 km · ~15 min walk".
 export function describeTrip(from, place, profile) {
   if (!hasCoords(from) || !hasCoords(place)) return null;
   const p = profile || DEFAULT_PROFILE;
   const straightKm = straightLineKm(from, place);
-  const minutes = driveMinutes(straightKm, p);
-  const label = "about " + straightKm.toFixed(1) + " km" + MIDDLE_DOT + "~" + minutes + " min drive";
+  const minutes = walkMinutes(straightKm, p);
+  const label = "about " + straightKm.toFixed(1) + " km" + MIDDLE_DOT + "~" + minutes + " min walk";
   return { straightKm: straightKm, minutes: minutes, label: label };
 }
 
-// The "Minutes I'll drive" filter. `limit` is a number of minutes or 'any'.
+// The "Minutes I'll walk" filter. `limit` is a number of minutes or 'any'.
 // A place with unknown minutes is kept.
-export function withinDriveLimit(minutes, limit) {
+export function withinWalkLimit(minutes, limit) {
   if (minutes === null || minutes === undefined || limit === "any") return true;
   return minutes <= limit;
 }
@@ -90,7 +90,7 @@ export function calibrationReport(samples, profile) {
   const pad = function (v, n) { return String(v).padEnd(n); };
   const lines = [pad("straight km", 13) + pad("actual min", 12) + pad("estimate", 10) + "off by"];
   samples.forEach(function (s) {
-    const minutes = driveMinutes(s.straightKm, p);
+    const minutes = walkMinutes(s.straightKm, p);
     const off = minutes - s.actualMinutes;
     lines.push(pad(s.straightKm.toFixed(1), 13) + pad(s.actualMinutes, 12) + pad(minutes, 10) +
       (off > 0 ? "+" : "") + off);

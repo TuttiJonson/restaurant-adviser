@@ -2,7 +2,7 @@
 import { DEFAULT_PROFILE, calibrateSpeed, calibrationReport } from "../distance.js";
 
 // One row per place: straightKm is from this tool's own "about X km" output,
-// actualMinutes is the real drive time from Google Maps.
+// actualMinutes is the real walking time from Google Maps.
 const SAMPLES = [
   // { straightKm: 3.8, actualMinutes: 18 },
 ];
