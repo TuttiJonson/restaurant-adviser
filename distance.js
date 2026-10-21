@@ -9,9 +9,9 @@
 // A profile says how a trip behaves.
 //   roadFactor: roads wind, so the real route is this many times the straight line
 //   speedKmh:   average speed along the route, stops and lights included
-//   spread:     the range is the estimate plus or minus this share (0.15 = 15%)
+//   overhead:   fixed minutes added to every trip (parking, getting out, lights)
 export const PROFILES = {
-  city: { roadFactor: 1.4, speedKmh: 18, spread: 0.15 }
+  city: { roadFactor: 1.4, speedKmh: 22, overhead: 3 }
 };
 
 export const DEFAULT_PROFILE = PROFILES.city;
@@ -34,33 +34,22 @@ function hasCoords(p) {
   return !!p && typeof p.lat === "number" && typeof p.lng === "number";
 }
 
-// Drive minutes for a straight-line distance under a profile.
+// Whole drive minutes for a straight-line distance under a profile:
+// overhead plus the winding route at the average speed.
 function driveMinutes(straightKm, profile) {
-  return straightKm * profile.roadFactor / profile.speedKmh * 60;
+  return Math.round(profile.overhead + (straightKm * profile.roadFactor) / profile.speedKmh * 60);
 }
 
-// Turns a low and high estimate into whole minutes: single minutes under 10,
-// steps of 5 from there, so a trip reads "15-20" and not "15.1-20.4".
-function roundRange(lo, hi) {
-  if (hi < 10) {
-    const a = Math.max(1, Math.round(lo)), b = Math.max(a + 1, Math.round(hi));
-    return [a, b];
-  }
-  const a = Math.max(5, Math.round(lo / 5) * 5), b = Math.max(a + 5, Math.round(hi / 5) * 5);
-  return [a, b];
-}
-
-// Describes the trip from `from` to `place`: { straightKm, minutes, range, label },
-// or null when either end has no coordinates. `minutes` is the middle of the
-// range. `label` is the finished text, like "about 3.8 km · 15-20 min drive".
+// Describes the trip from `from` to `place`: { straightKm, minutes, label },
+// or null when either end has no coordinates. `label` is the finished text,
+// like "about 3.8 km · ~15 min drive".
 export function describeTrip(from, place, profile) {
   if (!hasCoords(from) || !hasCoords(place)) return null;
   const p = profile || DEFAULT_PROFILE;
   const straightKm = straightLineKm(from, place);
   const minutes = driveMinutes(straightKm, p);
-  const range = roundRange(minutes * (1 - p.spread), minutes * (1 + p.spread));
-  const label = "about " + straightKm.toFixed(1) + " km" + MIDDLE_DOT + range[0] + "-" + range[1] + " min drive";
-  return { straightKm: straightKm, minutes: minutes, range: range, label: label };
+  const label = "about " + straightKm.toFixed(1) + " km" + MIDDLE_DOT + "~" + minutes + " min drive";
+  return { straightKm: straightKm, minutes: minutes, label: label };
 }
 
 // The "Minutes I'll drive" filter. `limit` is a number of minutes or 'any'.
@@ -80,13 +69,14 @@ export function distanceScore(minutes, limit) {
 }
 
 // Fits the average route speed (km/h) to real trips. `samples` is a list of
-// { straightKm, actualMinutes }. Keeps the profile's roadFactor and finds the
-// speedKmh that best matches the real times (least squares). Null if no samples.
+// { straightKm, actualMinutes }. Keeps the profile's roadFactor and overhead and
+// finds the speedKmh that best matches the real times (least squares). Null if no samples.
 export function calibrateSpeed(samples, profile) {
   const p = profile || DEFAULT_PROFILE;
   let xy = 0, xx = 0;
   samples.forEach(function (s) {
-    xy += s.straightKm * s.actualMinutes;
+    const driving = s.actualMinutes - p.overhead;
+    xy += s.straightKm * driving;
     xx += s.straightKm * s.straightKm;
   });
   if (xy <= 0) return null;
@@ -98,13 +88,12 @@ export function calibrateSpeed(samples, profile) {
 export function calibrationReport(samples, profile) {
   const p = profile || DEFAULT_PROFILE;
   const pad = function (v, n) { return String(v).padEnd(n); };
-  const lines = [pad("straight km", 13) + pad("actual min", 12) + pad("estimate", 10) + pad("range", 10) + "in range?"];
+  const lines = [pad("straight km", 13) + pad("actual min", 12) + pad("estimate", 10) + "off by"];
   samples.forEach(function (s) {
     const minutes = driveMinutes(s.straightKm, p);
-    const range = roundRange(minutes * (1 - p.spread), minutes * (1 + p.spread));
-    const inside = s.actualMinutes >= range[0] && s.actualMinutes <= range[1];
-    lines.push(pad(s.straightKm.toFixed(1), 13) + pad(s.actualMinutes, 12) + pad(minutes.toFixed(1), 10) +
-      pad(range[0] + "-" + range[1], 10) + (inside ? "yes" : "no"));
+    const off = minutes - s.actualMinutes;
+    lines.push(pad(s.straightKm.toFixed(1), 13) + pad(s.actualMinutes, 12) + pad(minutes, 10) +
+      (off > 0 ? "+" : "") + off);
   });
   return lines.join("\n");
 }

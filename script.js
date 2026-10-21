@@ -545,7 +545,7 @@ import { DEFAULT_PROFILE, describeTrip, withinDriveLimit, distanceScore } from "
       parts.push("Matches " + f.craving);
     }
     const trip = tripOf(p);
-    if (trip) parts.push("it's about " + trip.range[0] + "-" + trip.range[1] + " min away");
+    if (trip) parts.push("it's about " + trip.minutes + " min away");
     if (!p.visited) parts.push("you haven't been yet");
     if (!parts.length) return "Picked at random from the places that fit.";
     const text = parts.slice(0, 2).join(", and ");
