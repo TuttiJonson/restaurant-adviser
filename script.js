@@ -228,6 +228,8 @@ const STARTING_PLACES = [
    THE BIG IDEA: data -> state -> draw. When something changes, we change
    `state`, save it if needed, then redraw the screen from `state`.
    ------------------------------------------------------------------ */
+import { DEFAULT_PROFILE, describeTrip, withinDriveLimit, distanceScore } from "./distance.js";
+
 (function () {
   "use strict";  
 
@@ -236,8 +238,7 @@ const STARTING_PLACES = [
 
   // Ranking constants. 
   const W = {
-    closeKm: 15,     // closeness falls to nothing at this distance
-    speedKmh: 30     // assumed average speed for the drive-time estimate
+    distance: 1      // weight on the distance score (0 to 1) from distance.js
   };
 
   // If my craving has nothing left that fits, the page tries this tag instead
@@ -375,27 +376,21 @@ const STARTING_PLACES = [
 
   /* ---------- distance ---------- */
 
-  // calculates the straight-line distance between your location and the restaurant, accounting for Earth's curvature.
-  function haversineKm(a, b) { // this function calculates the distance between two points. a is the first locarion and b is the second location 
-    const R = 6371, rad = Math.PI / 180; // the earth approx radius in kilometers 
-    const dLat = (b.lat - a.lat) * rad, dLng = (b.lng - a.lng) * rad;
-    const x = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-      Math.cos(a.lat * rad) * Math.cos(b.lat * rad) * Math.sin(dLng / 2) * Math.sin(dLng / 2);
-    return 2 * R * Math.asin(Math.sqrt(x));
-  }
   // Does this place have coordinates?  Checking the actual coordinate. 
   function hasCoords(p) { return typeof p.lat === "number" && typeof p.lng === "number"; }
-  // Distance from me to a place in km, or null if my location or the
-  // place's coordinates are missing.
-  function kmTo(p) {
-    if (!state.position || !hasCoords(p)) return null;
-    return haversineKm(state.position, p);
+
+  // The trip from me to each place, by place id, worked out once per ranking
+  // pass by distance.js. A place with no coordinates (or no position) is null.
+  let trips = {};
+  function planTrips() {
+    trips = {};
+    state.places.forEach(function (p) {
+      trips[p.id] = describeTrip(state.position, p, DEFAULT_PROFILE);
+    });
   }
-  // Estimated drive time: distance divided by the assumed speed, times 60.
-  function minutesTo(p) {
-    const km = kmTo(p);
-    return km === null ? null : km / W.speedKmh * 60;
-  }
+  function tripOf(p) { return trips[p.id] || null; }
+  // The "Minutes I'll drive" choice as distance.js expects it.
+  function driveLimit() { return state.form.minutes === null ? "any" : state.form.minutes; }
 
   /* ---------- tags and tiles ---------- */
   //Selects one of four predefined CSS styles based on the restaurant's cuisine. 
@@ -510,16 +505,16 @@ const STARTING_PLACES = [
   // a later value only decides when every earlier one is equal:
   //   1. 1 if it has the craving tag
   //   2. price: 0 at the bracket I chose, more negative the further below it is
-  //   3. closeness from 0 to 1 (full at 0 km, none at 15 km or more)
+  //   3. distance score from 0 to 1 (distanceScore in distance.js)
   //   4. 1 if it is somewhere I haven't been (only when "Been before" is Either)
   // `tag` is the craving being matched: my choice, or its alternative.
   function scorePlace(p, tag) { // p is the restaurant. tag is the cuisine we're trying to match 
     const f = state.form;
-    const km = kmTo(p);
+    const trip = tripOf(p);
     return [
       tag !== "anything" && p.tags.indexOf(tag) !== -1 ? 1 : 0,
       p.bracket - f.budget,
-      km === null ? 0 : Math.max(0, 1 - km / W.closeKm),
+      distanceScore(trip ? trip.minutes : null, driveLimit()) * W.distance,
       f.been === "either" && !p.visited ? 1 : 0
     ];
   }
@@ -549,8 +544,8 @@ const STARTING_PLACES = [
     } else if (f.craving !== "anything" && p.tags.indexOf(f.craving) !== -1) {
       parts.push("Matches " + f.craving);
     }
-    const m = minutesTo(p);
-    if (m !== null) parts.push("it's about " + Math.max(1, Math.round(m)) + " min away");
+    const trip = tripOf(p);
+    if (trip) parts.push("it's about " + trip.range[0] + "-" + trip.range[1] + " min away");
     if (!p.visited) parts.push("you haven't been yet");
     if (!parts.length) return "Picked at random from the places that fit.";
     const text = parts.slice(0, 2).join(", and ");
@@ -569,6 +564,7 @@ const STARTING_PLACES = [
   function computePick() {
     const f = state.form;
     if (state.places.length === 0) return { kind: "prompt" };
+    planTrips();
     let pool = state.places.filter(function (p) { return state.hidden.indexOf(p.id) === -1; });
     if (pool.length === 0) return { kind: "nothingleft" };
 
@@ -577,7 +573,7 @@ const STARTING_PLACES = [
     const stages = [
       { on: f.been !== "either", test: function (p) { return f.been === "new" ? !p.visited : p.visited; } },
       { on: f.budget < 4, test: function (p) { return p.bracket <= f.budget; } },
-      { on: f.minutes !== null, test: function (p) { const m = minutesTo(p); return m === null || m <= f.minutes; } }
+      { on: f.minutes !== null, test: function (p) { const trip = tripOf(p); return withinDriveLimit(trip ? trip.minutes : null, driveLimit()); } }
     ];
     for (let i = 0; i < stages.length; i++) {
       if (!stages[i].on) continue;
@@ -700,10 +696,8 @@ const STARTING_PLACES = [
   // The small line under the name: distance, drive time and price (or
   // "distance unknown" when we have no location).
   function metaLine(p) {
-    const km = kmTo(p), m = minutesTo(p);
-    const parts = km === null
-      ? ["distance unknown", symbolFor(p)]
-      : ["about " + km.toFixed(1) + " km", "~" + Math.max(1, Math.round(m)) + " min drive", symbolFor(p)];
+    const trip = tripOf(p);
+    const parts = [trip ? trip.label : "distance unknown", symbolFor(p)];
     return h("p", { class: "mono meta-line" }, dotted(parts));
   }
 
@@ -837,11 +831,12 @@ const STARTING_PLACES = [
     }
 
     const list = h("ul", { class: "list" });
+    planTrips();
     state.places.forEach(function (p) {
-      const km = kmTo(p);
+      const trip = tripOf(p);
       const dist = !hasCoords(p)
         ? h("span", { class: "row-dist none", text: "no coords" })
-        : h("span", { class: "row-dist", text: km === null ? "" : km.toFixed(1) + " km" });
+        : h("span", { class: "row-dist", text: trip ? trip.straightKm.toFixed(1) + " km" : "" });
       const meta = h("p", { class: "row-meta" }, dotted([
         document.createTextNode(p.tags.join(", ")),
         document.createTextNode(symbolFor(p)),
