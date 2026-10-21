@@ -41,11 +41,15 @@ Where the data lives:
 
 How the pick is worked out:
 - Hard cuts first: been before, budget, and drive minutes (only if filled in).
-- Then each remaining place gets a score: craving match +3 (a tag matches the chosen craving; 0 for everyone if "Anything"), closeness up to +2 (only if my position and the place's coordinates are both known), and not been yet +1 (only when Been before is "Either"; it is already settled when I choose New or Been before). The not-been bonus uses the been flag, not dates, and is what lets the list drain: each time I mark a place as been, it loses the bonus.
-- Highest score wins. If places tie, one of the tied places is chosen at random, so the pick varies. This matters most when Craving is "Anything" and my position is unknown and I've picked Been before, because then every place ties.
+- Then the remaining places are ranked in this order. Each step only matters when the one above it is equal:
+  1. Craving match (a tag matches the chosen craving; equal for everyone if "Anything").
+  2. Price: closest to the bracket I chose. Budget is still a maximum, but a place at exactly my bracket ranks above one a bracket lower, and so on. For example, with $$$$ chosen, a $$$$ place beats a $ place.
+  3. Closeness (nearer ranks higher, falling to nothing at 15 km; only if my position and the place's coordinates are both known).
+  4. Not been yet. This is only the last tiebreaker, so a new place wins only when it matches a been-before place on everything above. It applies only when Been before is "Either"; it is already settled when I choose New or Been before. It uses the been flag, not dates, and is what lets the list drain: each time I mark a place as been, it loses this edge.
+- If places are still tied after all four steps, one of them is chosen at random, so the pick varies. This matters most when Craving is "Anything", my position is unknown, and the places share a price bracket.
 - Alternatives: if my craving has no place left that fits (after the hard cuts, and not counting places already shown this round), the page tries an alternative tag instead and says so in the reason, for example "No Italian fits tonight, so here's a Greek alternative." The pairs are: Italian to Greek, Vietnamese to Chinese, Greek and Middle Eastern to each other, Latin and Spanish to each other, American and Seafood to each other. Tags I add myself have no alternative. If the alternative has nothing either, the page picks from what fits and the reason starts "No Italian fits tonight."
 - There is no waiting or staleness factor in version 1. Nothing in the scoring depends on the order I added places.
-- The weights are plain constants in the code so I can adjust them after trying real places.
+- The distance falloff (15 km) and the drive speed (30 km/h) are plain constants in the code so I can adjust them after trying real places.
 - My position comes from the browser (`navigator.geolocation`) when I press the button. Distance is calculated in JavaScript from the saved coordinates.
 
 ### Tab 2: My list

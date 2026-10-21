@@ -234,12 +234,9 @@ const STARTING_PLACES = [
   const KEY_PLACES = "restaurantAdviser.places"; // storage key for the restaurants, this is where the data is saved in the browser
   const KEY_TAGS = "restaurantAdviser.tags";
 
-  // Scoring weights. 
+  // Ranking constants. 
   const W = {
-    craving: 3,      // a tag matches the craving I chose
-    closeness: 2,    // up to this many points, falling to 0 at closeKm
-    notBeen: 1,      // only when "Been before" is Either
-    closeKm: 15,
+    closeKm: 15,     // closeness falls to nothing at this distance
     speedKmh: 30     // assumed average speed for the drive-time estimate
   };
 
@@ -509,22 +506,33 @@ const STARTING_PLACES = [
     return words.join(" ") + ".";
   }
 
-  // Gives one place a score. Higher = better fit. Points come from:
-  //   +3 if it has the craving tag
-  //   +0 to +2 for closeness (full points at 0 km, none at 15 km or more)
-  //   +1 if it is somewhere I haven't been (only when "Been before" is Either)
+  // Ranks one place as an ordered list of values. Earlier values matter more;
+  // a later value only decides when every earlier one is equal:
+  //   1. 1 if it has the craving tag
+  //   2. price: 0 at the bracket I chose, more negative the further below it is
+  //   3. closeness from 0 to 1 (full at 0 km, none at 15 km or more)
+  //   4. 1 if it is somewhere I haven't been (only when "Been before" is Either)
   // `tag` is the craving being matched: my choice, or its alternative.
-
-
-
-  function scorePlace(p, tag) { // p is the restaurant tag. Is the cuisine we're trying to match 
+  function scorePlace(p, tag) { // p is the restaurant. tag is the cuisine we're trying to match 
     const f = state.form;
-    let s = 0;
-    if (tag !== "anything" && p.tags.indexOf(tag) !== -1) s += W.craving; // basically saying that if the restaurant has a cuisine that we are craving (that particular tag), then add 3 points. 
     const km = kmTo(p);
-    if (km !== null) s += W.closeness * Math.max(0, 1 - km / W.closeKm);
-    if (f.been === "either" && !p.visited) s += W.notBeen; // one point if I haven't visited it yet 
-    return s;
+    return [
+      tag !== "anything" && p.tags.indexOf(tag) !== -1 ? 1 : 0,
+      p.bracket - f.budget,
+      km === null ? 0 : Math.max(0, 1 - km / W.closeKm),
+      f.been === "either" && !p.visited ? 1 : 0
+    ];
+  }
+
+  // Compares two rankings from scorePlace. Returns 1 if a is better, -1 if b is
+  // better, 0 if they tie. The 1e-9 is a tiny margin because decimal math can
+  // leave tiny rounding differences.
+  function compareScores(a, b) {
+    for (let i = 0; i < a.length; i++) {
+      if (a[i] > b[i] + 1e-9) return 1;
+      if (b[i] > a[i] + 1e-9) return -1;
+    }
+    return 0;
   }
 
   // Writes the one-sentence "why this place" text. It collects up to two
@@ -557,7 +565,7 @@ const STARTING_PLACES = [
   //      nothing, stop and report "nomatch".
   //   3. Drop places already shown this round.
   //   4. If nothing left matches the craving, try its alternative tag.
-  //   5. Score everything, keep the top scorers, choose one at random.
+  //   5. Rank everything, keep the top ranked, choose one at random.
   function computePick() {
     const f = state.form;
     if (state.places.length === 0) return { kind: "prompt" };
@@ -588,13 +596,13 @@ const STARTING_PLACES = [
       else noCraving = true;
     }
 
-    // Find the highest score and every place that ties for it. The 1e-9 is a
-    // tiny margin because decimal math can leave tiny rounding differences.
-    let best = -Infinity, top = [];
+    // Find the best ranking and every place that ties for it.
+    let best = null, top = [];
     fresh.forEach(function (p) {
       const s = scorePlace(p, tag);
-      if (s > best + 1e-9) { best = s; top = [p]; }
-      else if (Math.abs(s - best) <= 1e-9) top.push(p);
+      const c = best === null ? 1 : compareScores(s, best);
+      if (c > 0) { best = s; top = [p]; }
+      else if (c === 0) top.push(p);
     });
     // Ties are broken at random, so the pick varies.
     return { kind: "pick", place: top[Math.floor(Math.random() * top.length)], alt: alt, noCraving: noCraving };
