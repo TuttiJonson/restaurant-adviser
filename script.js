@@ -25,14 +25,14 @@ const STARTING_PLACES = [
     bracket: 2, // $40-80, set to $$ by me
     tags: ["Greek"],
     description: "An intimate, sophisticated neighborhood spot for Greek small plates & imported wine & spirits.",
-    visited: true
+    visited: true // I have been there if not it would have been false, it is a booleann value  
   },
   {
     id: "p2",
     name: "Desnuda",
     link: "https://www.google.com/maps/place/Desnuda+cocina+%26+bar/@42.3422458,-71.080572,1354m/data=!3m1!1e3!4m15!1m8!3m7!1s0x89e37a6c550f22ad:0xc12cc7d8ac048737!2sKAVA+neo-taverna!8m2!3d42.3423572!4d-71.0705134!10e1!16s%2Fg%2F11cm1bpt3q!3m5!1s0x89e37b39a93f909f:0x9a1a5926e63e190c!8m2!3d42.3422379!4d-71.0754394!16s%2Fg%2F11wn08hkl6",
     lat: 42.3422379, lng: -71.0754394,
-    bracket: 3, // $40-80
+    bracket: 3, // 
     tags: ["Latin"],
     description: "Fun night out with vibrant Latin food.",
     visited: true
@@ -213,14 +213,28 @@ const STARTING_PLACES = [
 /* ------------------------------------------------------------------
    THE APP
    State lives in the `state` object. Every screen is drawn from it.
+
+   HOW THE FILE IS ORGANIZED (top to bottom):
+   1. Settings and the `state` object
+   2. Helpers (building HTML, saving, loading)
+   3. Distance math
+   4. The form on the Tonight tab
+   5. The pick: filter, score, choose
+   6. Tonight tab: button clicks and drawing the result
+   7. My list tab: drawing the list, Been and Delete
+   8. Add form: validation and saving a new place
+   9. Tabs and start-up
+
+   THE BIG IDEA: data -> state -> draw. When something changes, we change
+   `state`, save it if needed, then redraw the screen from `state`.
    ------------------------------------------------------------------ */
 (function () {
-  "use strict";
+  "use strict";  
 
-  const KEY_PLACES = "restaurantAdviser.places";
+  const KEY_PLACES = "restaurantAdviser.places"; // storage key for the restaurants, this is where the data is saved in the browser
   const KEY_TAGS = "restaurantAdviser.tags";
 
-  // Scoring weights. Plain numbers so they are easy to adjust (PRD.md).
+  // Scoring weights. 
   const W = {
     craving: 3,      // a tag matches the craving I chose
     closeness: 2,    // up to this many points, falling to 0 at closeKm
@@ -242,6 +256,7 @@ const STARTING_PLACES = [
     "Seafood": "American"
   };
 
+  // Price categories 
   const BRACKETS = [
     { value: 1, symbol: "$",    range: "under $20" },
     { value: 2, symbol: "$$",   range: "$20-50" },
@@ -249,10 +264,12 @@ const STARTING_PLACES = [
     { value: 4, symbol: "$$$$", range: "$100+" }
   ];
 
+  // Is the websites memory, places is the restauranst, but not saved permanentely .
   const state = {
-    places: [],
-    tags: [],
-    dataError: false,
+    places: [],                 // my restaurants (saved to localStorage)
+    tags: [],                   // cuisine tags (saved to localStorage)
+    dataError: false,           // true if the saved data was unreadable
+    // The choices on the Tonight form. 4 = any budget, null minutes = any time.
     form: { been: "either", budget: 4, craving: "anything", minutes: null },
     view: { kind: "prompt" },   // prompt | loading | pick | nomatch | nothingleft
     currentId: null,
@@ -261,31 +278,35 @@ const STARTING_PLACES = [
     logged: null,               // name, right after "I'm going"
     position: null,             // { lat, lng }, kept only while the page is open
     geo: "idle",                // idle | loading | ok | denied
-    confirmDelete: null,
-    add: { bracket: null, tags: [] }
+    confirmDelete: null,        // id of the place waiting for a second "Delete" click
+    add: { bracket: null, tags: [] }   // choices made so far in the Add form
   };
 
   /* ---------- small helpers ---------- */
 
-  function h(tag, props) {
-    const el = document.createElement(tag);
+  function h(tag, props) { // this function creates a visible HTML elements for the pages 
+    const el = document.createElement(tag); // this creates an HTML element, such as a button or paragraph. 
     const kids = Array.prototype.slice.call(arguments, 2);
-    Object.keys(props || {}).forEach(function (k) {
+    Object.keys(props || {}).forEach(function (k) { // giving the html it's properties , this goes thorugh each properties 
       const v = props[k];
       if (v === null || v === undefined || v === false) return;
       if (k === "class") el.className = v;
-      else if (k === "text") el.textContent = v;
+      else if (k === "text") el.textContent = v; // if the property is text, but that text inside the element 
       else if (k.slice(0, 2) === "on") el.addEventListener(k.slice(2), v);
       else el.setAttribute(k, v === true ? "" : v);
     });
-    kids.flat().forEach(function (kid) {
+    kids.flat().forEach(function (kid) { //kids means any additional content placed in the elemtn 
       if (kid !== null && kid !== undefined && kid !== false) el.append(kid);
     });
     return el;
   }
+  // $("some-id") is a short way to find an element on the page by its id.
   const $ = function (id) { return document.getElementById(id); };
+  // clone() makes an independent copy, so editing state never changes the
+  // original starting data.
   const clone = function (x) { return JSON.parse(JSON.stringify(x)); };
 
+  // Puts a "·" between each item, like "about 2 km · ~4 min drive · $$".
   function dotted(parts) {
     const out = [];
     parts.forEach(function (p, i) {
@@ -297,13 +318,17 @@ const STARTING_PLACES = [
 
   /* ---------- storage ---------- */
 
-  function save() {
+  // Writes the places and tags into localStorage so they survive a refresh.
+
+  function save() { // converts the data to text to save it into the local Storage 
     try {
-      localStorage.setItem(KEY_PLACES, JSON.stringify(state.places));
+      localStorage.setItem(KEY_PLACES, JSON.stringify(state.places)); // saves informationin the browser 
       localStorage.setItem(KEY_TAGS, JSON.stringify(state.tags));
     } catch (e) { /* storage unavailable: the page still works for this visit */ }
   }
 
+  // Safety check on saved data: is it a list, and does every place have the
+  // fields the app relies on? If not, we don't trust it.
   function validPlaces(list) {
     return Array.isArray(list) && list.every(function (p) {
       return p && typeof p.id === "string" && typeof p.name === "string" &&
@@ -312,6 +337,8 @@ const STARTING_PLACES = [
     });
   }
 
+  // Starts from the saved tag list and adds any tag a place uses that is
+  
   function tagsFrom(places, base) {
     const tags = base.slice();
     places.forEach(function (p) {
@@ -320,10 +347,10 @@ const STARTING_PLACES = [
     return tags;
   }
 
-  function loadState() {
+  function loadState() { // this function check wheneve it is your first time visiting, if nothing has been saved it copies the starting restauant 
     let rawPlaces = null, rawTags = null;
     try {
-      rawPlaces = localStorage.getItem(KEY_PLACES);
+      rawPlaces = localStorage.getItem(KEY_PLACES); // retrieves the saved information
       rawTags = localStorage.getItem(KEY_TAGS);
     } catch (e) { /* treat as first visit */ }
 
@@ -351,33 +378,41 @@ const STARTING_PLACES = [
 
   /* ---------- distance ---------- */
 
-  function haversineKm(a, b) {
-    const R = 6371, rad = Math.PI / 180;
+  // calculates the straight-line distance between your location and the restaurant, accounting for Earth's curvature.
+  function haversineKm(a, b) {. // this function calculates the distance between two points. a is the first locarion and b is the second location 
+    const R = 6371, rad = Math.PI / 180; // the earth approx radius in kilometers 
     const dLat = (b.lat - a.lat) * rad, dLng = (b.lng - a.lng) * rad;
     const x = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
       Math.cos(a.lat * rad) * Math.cos(b.lat * rad) * Math.sin(dLng / 2) * Math.sin(dLng / 2);
     return 2 * R * Math.asin(Math.sqrt(x));
   }
+  // Does this place have coordinates?  Checking the actual coordinate. 
   function hasCoords(p) { return typeof p.lat === "number" && typeof p.lng === "number"; }
+  // Distance from me to a place in km, or null if my location or the
+  // place's coordinates are missing.
   function kmTo(p) {
     if (!state.position || !hasCoords(p)) return null;
     return haversineKm(state.position, p);
   }
+  // Estimated drive time: distance divided by the assumed speed, times 60.
   function minutesTo(p) {
     const km = kmTo(p);
     return km === null ? null : km / W.speedKmh * 60;
   }
 
   /* ---------- tags and tiles ---------- */
+  //Selects one of four predefined CSS styles based on the restaurant's cuisine. 
 
   function tileClass(p) {
     const i = state.tags.indexOf(p.tags[0]);
     return i < 0 ? "tile-ink" : "tile-" + (i % 4);
   }
+  // Turns a bracket number into its symbol, e.g. 2 -> "$$" (arrays start at 0, so -1).
   function symbolFor(p) { return BRACKETS[p.bracket - 1].symbol; }
 
   /* ---------- chips and brackets (radio / checkbox inputs) ---------- */
 
+  // This function receives where to put the buttons (which is `container`) and how to build them (which is `configuration`). 
   function buildGroup(container, cfg) {
     container.replaceChildren();
     cfg.options.forEach(function (o) {
@@ -387,19 +422,24 @@ const STARTING_PLACES = [
       const face = cfg.kind === "bracket"
         ? h("span", { class: "face" }, h("strong", { text: o.label }), h("small", { class: "mono-xs", text: o.sub }))
         : h("span", { class: "face", text: o.label });
-      container.append(h("label", { class: cfg.kind }, input, face));
+      container.append(h("label", { class: cfg.kind }, input, face)); // actually puts the styled selection button on the website , append actually adds the complete control to your web page. 
     });
   }
 
+  // Converts BRACKETS into the option format buildGroup expects.
   function bracketOptions() {
     return BRACKETS.map(function (b) { return { value: b.value, label: b.symbol, sub: b.range }; });
   }
 
+  // Builds the Tonight form: Been, Budget, Craving, Minutes. .
+  // Kind. It's what makes the button look like, for example, if it's `BRACKETS`, it's price `BRACKETS`. 
+  // Type radio means the user can select only one option. 
+  // Name just identifies the inputs as belonging to what type of group. 
   function buildTonightForm() {
     buildGroup($("g-been"), {
       kind: "chip", type: "radio", name: "been",
       options: [{ value: "new", label: "New" }, { value: "been", label: "Been before" }, { value: "either", label: "Either" }],
-      isChecked: function (v) { return state.form.been === v; },
+      isChecked: function (v) { return state.form.been === v; }, // then it's checking if the button's value is the same as the budget currently selected.
       onChange: function (v) { state.form.been = v; }
     });
     buildGroup($("g-budget"), {
@@ -408,7 +448,7 @@ const STARTING_PLACES = [
       isChecked: function (v) { return state.form.budget === v; },
       onChange: function (v) { state.form.budget = v; }
     });
-    buildCraving();
+    buildCraving(); 
     buildGroup($("g-minutes"), {
       kind: "chip", type: "radio", name: "minutes",
       options: [{ value: 10, label: "10" }, { value: 20, label: "20" }, { value: 30, label: "30" }, { value: null, label: "Any" }],
@@ -417,9 +457,10 @@ const STARTING_PLACES = [
     });
   }
 
+  // Function creates the cuisine selection buttons on the website. 
   function buildCraving() {
-    const options = state.tags.map(function (t) { return { value: t, label: t }; });
-    options.push({ value: "anything", label: "Anything" });
+    const options = state.tags.map(function (t) { return { value: t, label: t }; }); // state `tags` is the list of cuisines that I've inputted. 
+    options.push({ value: "anything", label: "Anything" }); // adds the "Anything" option to the list of cuisines.
     buildGroup($("g-craving"), {
       kind: "chip", type: "radio", name: "craving",
       options: options,
@@ -428,6 +469,7 @@ const STARTING_PLACES = [
     });
   }
 
+  // The purpose of this function is to create the price and the selection buttons when a user wants to add a new restaurant to the app. 
   function buildAddForm() {
     buildGroup($("g-add-bracket"), {
       kind: "bracket", type: "radio", name: "add-bracket",
@@ -435,7 +477,7 @@ const STARTING_PLACES = [
       isChecked: function (v) { return state.add.bracket === v; },
       onChange: function (v) { state.add.bracket = v; }
     });
-    buildGroup($("g-add-tags"), {
+    buildGroup($("g-add-tags"), { // this actually creates the selection buttons for the restaurant form. 
       kind: "chip", type: "checkbox", name: "add-tags",
       options: state.tags.map(function (t) { return { value: t, label: t }; }),
       isChecked: function (v) { return state.add.tags.indexOf(v) !== -1; },
@@ -447,13 +489,16 @@ const STARTING_PLACES = [
     });
   }
 
-  /* ---------- the pick ---------- */
+  /* ---------- the pick ---------- */ // How your agent chooses a restaurant 
+  // Process is filtering, so remove the restaurants that don't meet the user's requirement, give it a score, and then pick. 
 
+  // Creates text describing the budget
   function budgetPhrase(b) {
     if (b === 1) return "under $20";
     return "at " + (b === 2 ? "$50" : "$100") + " or less";
   }
 
+  // Uses that text to explain why no restaurants match.
   function noMatchMessage(stageIndex) {
     const f = state.form;
     const words = ["Nothing"];
@@ -464,17 +509,28 @@ const STARTING_PLACES = [
     return words.join(" ") + ".";
   }
 
+  // Gives one place a score. Higher = better fit. Points come from:
+  //   +3 if it has the craving tag
+  //   +0 to +2 for closeness (full points at 0 km, none at 15 km or more)
+  //   +1 if it is somewhere I haven't been (only when "Been before" is Either)
   // `tag` is the craving being matched: my choice, or its alternative.
-  function scorePlace(p, tag) {
+
+
+
+  function scorePlace(p, tag) { // p is the restaurant tag. Is the cuisine we're trying to match 
     const f = state.form;
     let s = 0;
-    if (tag !== "anything" && p.tags.indexOf(tag) !== -1) s += W.craving;
+    if (tag !== "anything" && p.tags.indexOf(tag) !== -1) s += W.craving; // basically saying that if the restaurant has a cuisine that we are craving (that particular tag), then add 3 points. 
     const km = kmTo(p);
     if (km !== null) s += W.closeness * Math.max(0, 1 - km / W.closeKm);
-    if (f.been === "either" && !p.visited) s += W.notBeen;
+    if (f.been === "either" && !p.visited) s += W.notBeen; // one point if I haven't visited it yet 
     return s;
   }
 
+  // Writes the one-sentence "why this place" text. It collects up to two
+  // reasons (craving match, drive time, not visited yet), joins them, and
+  // capitalizes the first letter. `alt` is the alternative tag if one was used;
+  // `noCraving` means nothing matched the craving at all.
   function reasonFor(p, alt, noCraving) {
     const f = state.form, parts = [];
     if (alt && p.tags.indexOf(alt) !== -1) {
@@ -493,12 +549,23 @@ const STARTING_PLACES = [
     return text.charAt(0).toUpperCase() + text.slice(1) + ".";
   }
 
+  // The brain of the app. Returns an object saying what to show:
+  //   { kind: "prompt" | "nothingleft" | "nomatch" | "pick", ... }
+  // Steps:
+  //   1. Start with all places except the ones I hid ("Not tonight").
+  //   2. Apply each filter in turn (been, budget, time). If one leaves
+  //      nothing, stop and report "nomatch".
+  //   3. Drop places already shown this round.
+  //   4. If nothing left matches the craving, try its alternative tag.
+  //   5. Score everything, keep the top scorers, choose one at random.
   function computePick() {
     const f = state.form;
     if (state.places.length === 0) return { kind: "prompt" };
     let pool = state.places.filter(function (p) { return state.hidden.indexOf(p.id) === -1; });
     if (pool.length === 0) return { kind: "nothingleft" };
 
+    // The filters. `on` = is this filter active? `test` = does a place pass?
+    // Places with unknown distance are let through the time filter.
     const stages = [
       { on: f.been !== "either", test: function (p) { return f.been === "new" ? !p.visited : p.visited; } },
       { on: f.budget < 4, test: function (p) { return p.bracket <= f.budget; } },
@@ -521,6 +588,8 @@ const STARTING_PLACES = [
       else noCraving = true;
     }
 
+    // Find the highest score and every place that ties for it. The 1e-9 is a
+    // tiny margin because decimal math can leave tiny rounding differences.
     let best = -Infinity, top = [];
     fresh.forEach(function (p) {
       const s = scorePlace(p, tag);
@@ -531,6 +600,9 @@ const STARTING_PLACES = [
     return { kind: "pick", place: top[Math.floor(Math.random() * top.length)], alt: alt, noCraving: noCraving };
   }
 
+  // Runs computePick, stores the result in state, remembers which place was
+  // shown (so it isn't repeated), redraws, and moves keyboard focus to the
+  // result heading for screen-reader users.
   function runPick() {
     const res = computePick();
     state.view = res;
@@ -546,6 +618,10 @@ const STARTING_PLACES = [
 
   /* ---------- position ---------- */
 
+  // Asks the browser for my location, then calls done() either way.
+  // geo tracks the progress: loading -> ok (got it) or denied (refused, no
+  // support, or took over 10 seconds). `finished` makes sure we only
+  // finish once, even if both the timer and the browser answer.
   function requestPosition(done) {
     if (!navigator.geolocation) { state.position = null; state.geo = "denied"; done(); return; }
     state.geo = "loading";
@@ -564,8 +640,10 @@ const STARTING_PLACES = [
 
   /* ---------- Tonight: events ---------- */
 
+  // "Pick one for me" was clicked. Resets the round, shows the loading
+  // state, gets my location, then runs the pick.
   function onPick(e) {
-    e.preventDefault();
+    e.preventDefault();   // stop the form from reloading the page
     if (state.places.length === 0 || state.geo === "loading") return;
     state.shown = [];
     state.logged = null;
@@ -575,14 +653,17 @@ const STARTING_PLACES = [
     renderTonight();
   }
 
+  // "Pick again": a new pick, without hiding the current one for good.
   function pickAgain() { state.logged = null; runPick(); }
 
+  // "Not tonight": hide the current place until Start over, then pick again.
   function notTonight() {
     if (state.currentId) state.hidden.push(state.currentId);
     state.logged = null;
     runPick();
   }
 
+  // "I'm going": mark the current place as visited, save, and redraw.
   function imGoing() {
     const p = state.places.filter(function (x) { return x.id === state.currentId; })[0];
     if (!p) return;
@@ -593,6 +674,7 @@ const STARTING_PLACES = [
     renderList();
   }
 
+  // "Start over": put the form and the round back to how they began.
   function startOver() {
     state.form = { been: "either", budget: 4, craving: "anything", minutes: null };
     state.view = { kind: "prompt" };
@@ -607,6 +689,8 @@ const STARTING_PLACES = [
 
   /* ---------- Tonight: drawing ---------- */
 
+  // The small line under the name: distance, drive time and price (or
+  // "distance unknown" when we have no location).
   function metaLine(p) {
     const km = kmTo(p), m = minutesTo(p);
     const parts = km === null
@@ -615,6 +699,9 @@ const STARTING_PLACES = [
     return h("p", { class: "mono meta-line" }, dotted(parts));
   }
 
+  // Redraws the whole Tonight result area from state. It clears the area, then
+  // draws whichever screen state.view.kind says: empty list, prompt, loading,
+  // nomatch, nothingleft, or pick (the winning restaurant card).
   function renderTonight() {
     const pickBtn = $("pick-btn");
     const loading = state.geo === "loading";
@@ -688,7 +775,14 @@ const STARTING_PLACES = [
   }
 
   /* ---------- My list ---------- */
+  //Display all my saved restaurants and let me mark them as visited or delete them. 
 
+  // toogle been (changes whether you visited a restaurant)
+  // delete place (removes a restaurant from the list)
+  // renderList (Creates and displays the list on the screenn)
+
+  // Flips a place between Been and Not yet, saves, and redraws both tabs.
+  // The `.filter(...)[0]` pattern finds the place whose id matches.
   function toggleBeen(id) {
     const p = state.places.filter(function (x) { return x.id === id; })[0];
     if (!p) return;
@@ -699,6 +793,8 @@ const STARTING_PLACES = [
     renderTonight();
   }
 
+  // Two-click delete. First click only marks the place as "Sure? Delete";
+  // the second click removes it everywhere it was remembered, then saves.
   function deletePlace(id) {
     if (state.confirmDelete !== id) { state.confirmDelete = id; renderList(); return; }
     state.places = state.places.filter(function (p) { return p.id !== id; });
@@ -711,6 +807,8 @@ const STARTING_PLACES = [
     renderTonight();
   }
 
+  // Redraws the My list tab: one row per place with its tile, name, tags,
+  // price, Been status, distance and the Been / Delete buttons.
   function renderList() {
     const note = $("data-notice");
     if (state.dataError) {
@@ -760,8 +858,11 @@ const STARTING_PLACES = [
 
   /* ---------- add form ---------- */
 
+  // Every form field that can show an error message.
   const FIELDS = ["name", "link", "coords", "bracket", "tags", "newtag"];
 
+  // Shows (or hides, if msg is empty) the error under a field and
+  // outlines the matching input box.
   function setError(field, msg) {
     const el = $("err-" + field);
     el.textContent = msg || "";
@@ -771,6 +872,9 @@ const STARTING_PLACES = [
   }
   function clearErrors() { FIELDS.forEach(function (f) { setError(f, ""); }); }
 
+  // Pulls latitude and longitude out of a Google Maps link. The regex
+  // /!3d...!4d.../ matches the "!3d<lat>!4d<lng>" parts of the link. If that
+  // is missing it falls back to the "@lat,lng" part. Returns null if neither.
   function coordsFromLink(url) {
     const pairs = Array.from(url.matchAll(/!3d(-?\d+(?:\.\d+)?)!4d(-?\d+(?:\.\d+)?)/g));
     if (pairs.length) {
@@ -781,6 +885,9 @@ const STARTING_PLACES = [
     return at ? { lat: parseFloat(at[1]), lng: parseFloat(at[2]) } : null;
   }
 
+  // Reads typed coordinates like "42.3812, -71.0998". Must be exactly two
+  // numbers, with lat between -90 and 90 and lng between -180 and 180.
+  // Returns null if anything is wrong.
   function parseTyped(text) {
     const bits = text.trim().split(/[\s,]+/);
     if (bits.length !== 2) return null;
@@ -791,6 +898,9 @@ const STARTING_PLACES = [
     return { lat: lat, lng: lng };
   }
 
+  // The Add form was submitted. Check every field (collecting all errors, not
+  // just the first). If anything is wrong, stop. Otherwise build the new place
+  // object, put it at the top of the list, save, and redraw.
   function onSave(e) {
     e.preventDefault();
     clearErrors();
@@ -819,6 +929,7 @@ const STARTING_PLACES = [
     }
     if (!ok) return;
 
+    // The id is "u" plus the current time in base 36, which is unique enough.
     const place = {
       id: "u" + Date.now().toString(36),
       name: name,
@@ -842,6 +953,8 @@ const STARTING_PLACES = [
     $("save-status").textContent = "Saved: " + name + ".";
   }
 
+  // Adds a new tag typed by me (rejecting blanks and duplicates), selects it
+  // for the place being added, saves, and redraws the tag choices.
   function addTag() {
     setError("newtag", "");
     const input = $("f-newtag");
@@ -861,6 +974,8 @@ const STARTING_PLACES = [
 
   /* ---------- tabs ---------- */
 
+  // The two tabs are really two sections of one page. The URL ending
+  // (#list or nothing) decides which is visible and which tab link is current.
   function showTab() {
     const list = location.hash === "#list";
     $("view-tonight").hidden = list;
@@ -874,6 +989,8 @@ const STARTING_PLACES = [
 
   /* ---------- start ---------- */
 
+  // Start-up: load saved data, build the forms, connect buttons to the
+  // functions above, then draw both tabs.
   function init() {
     loadState();
     buildTonightForm();
@@ -890,5 +1007,5 @@ const STARTING_PLACES = [
     showTab();
   }
 
-  init();
+  init();   // run the app
 })();

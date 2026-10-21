@@ -308,6 +308,9 @@ h2[tabindex="-1"]:focus { outline: none; }
 
 /* ---------- panel and form ---------- */
 .panel { border: var(--heavy); border-radius: 8px; overflow: hidden; background: var(--paper); position: sticky; top: 24px; }
+@media (min-width: 721px) {
+  .panel { max-height: calc(100vh - 48px); overflow-y: auto; overscroll-behavior: contain; }
+}
 .panel-head { background: var(--tertiary); color: #fff; padding: 16px 20px; font-size: 1.1875rem; font-weight: 800; letter-spacing: -0.02em; line-height: 1.2; }
 .panel-body { padding: 20px; }
 .field { margin-bottom: 20px; border: 0; padding: 0; min-width: 0; }
